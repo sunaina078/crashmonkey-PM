@@ -2,6 +2,7 @@
 #include <fstream>
 #include <cstdlib>
 #include <memory>
+#include <map>
 
 #include "panda/plugin.h"
 
@@ -18,11 +19,35 @@ enum event_type : int {
   FENCE,
 };
 
+
+// ******* New code:
+
+struct write_data_st {
+    char * data;
+    bool is_flushed;
+};
+
+map<char *, write_data_st*> snapshot_map;
+
+// **********
+
 static void log_output(target_ulong pc, event_type type, target_ulong offset, target_ulong write_size, void* write_data) {
   output->write(reinterpret_cast<char*>(&pc), sizeof(pc));
   output->write(reinterpret_cast<char*>(&type), sizeof(type));
   switch (type) {
   case WRITE: {
+
+    // ******* New code:
+
+    write_data_st * wdst = malloc(sizeof(write_data_st));
+    wdst->data = malloc(size);
+    memcpy(wdst->data, write_data, write_size);
+    snapshot_map.insert(pair<char *,write_data_st*>(*(reinterpret_cast<char*>(&offset)), wdst));
+
+    // **********
+
+
+
     output->write(reinterpret_cast<char*>(&offset), sizeof(offset));
     output->write(reinterpret_cast<char*>(&write_size), sizeof(write_size));
     output->write(reinterpret_cast<char*>(write_data), write_size);
@@ -73,30 +98,30 @@ static bool check_flush(CPUState *env, target_ulong pc, bool is_translate) {
   }
 
  if (insn[0] >= 0x88 && insn[0] <= 0x8F){
-	ofs << "\n" << std::hex << static_cast<int>(insn[1]) << " : Store; ";
-	if (insn[1]==0x6 || insn[1]==0x7){
-		ofs << std::hex << static_cast<int>(insn[0]) << " : is the start ins";;
-		uint8_t rm = insn[1] & 7;
-		auto target_reg = reg_from_rm(rm);
-         	target_ulong va = x86_env->regs[target_reg];
-         	target_ulong pa = panda_virt_to_phys(env, va);
-    		//if (pa >= range_start && pa < range_end) {
-			ofs << "\n\tPhy addr = " << pa;
-		//}
-	}
+  ofs << "\n" << std::hex << static_cast<int>(insn[1]) << " : Store; ";
+  if (insn[1]==0x6 || insn[1]==0x7){
+    ofs << std::hex << static_cast<int>(insn[0]) << " : is the start ins";;
+    uint8_t rm = insn[1] & 7;
+    auto target_reg = reg_from_rm(rm);
+          target_ulong va = x86_env->regs[target_reg];
+          target_ulong pa = panda_virt_to_phys(env, va);
+        //if (pa >= range_start && pa < range_end) {
+      ofs << "\n\tPhy addr = " << pa;
+    //}
+  }
  }
 
  if (insn[0] >= 0xA0 && insn[0] <= 0xA5){
-	ofs << "\n" << std::hex << static_cast<int>(insn[1]) << " : Store-A\n";
+  ofs << "\n" << std::hex << static_cast<int>(insn[1]) << " : Store-A\n";
  }
- if ( insn[0] == 0x0F)	
+ if ( insn[0] == 0x0F)  
   {
-	ofs << std::hex << static_cast<int>(insn[1]) <<" : Could be MovNTI";
-	uint8_t rm = insn[2] & 7;
-	auto target_reg = reg_from_rm(rm);
+  ofs << std::hex << static_cast<int>(insn[1]) <<" : Could be MovNTI";
+  uint8_t rm = insn[2] & 7;
+  auto target_reg = reg_from_rm(rm);
          target_ulong va = x86_env->regs[target_reg];
          target_ulong pa = panda_virt_to_phys(env, va);
-	ofs << "\t Phy addr = " << pa;	
+  ofs << "\t Phy addr = " << pa;  
   }
   
   if (insn[0] == 0x0F && insn[1] == 0xAE)
