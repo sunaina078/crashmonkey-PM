@@ -27,7 +27,7 @@ struct write_data_st {
     bool is_flushed;
 };
 
-map<char *, write_data_st*> snapshot_map;
+std::map<char *, write_data_st*> snapshot_map();
 
 // **********
 
@@ -40,9 +40,9 @@ static void log_output(target_ulong pc, event_type type, target_ulong offset, ta
     // ******* New code:
 
     write_data_st * wdst = malloc(sizeof(write_data_st));
-    wdst->data = malloc(size);
-    memcpy(wdst->data, write_data, write_size);
-    snapshot_map.insert(pair<char *,write_data_st*>(*(reinterpret_cast<char*>(&offset)), wdst));
+    wdst->data = malloc(write_size);
+    memcpy(wdst->data, reinterpret_cast<char*>(write_data), write_size);
+    snapshot_map.insert(std::pair<char *,write_data_st*>(*(reinterpret_cast<char*>(&offset)), wdst));
 
     // **********
 
